@@ -1,0 +1,265 @@
+# This is a basic workflow that is manually triggered
+
+name: Padavan固件编译
+
+# Controls when the action will run. Workflow runs when manually triggered using the UI
+# or API.
+on:
+  workflow_dispatch:
+    # Inputs the workflow accepts.
+    inputs:
+      production:
+        # Friendly description to be shown in the UI instead of 'name'
+        description: 设置编译的固件型号,空格分隔.
+        # Default value if no value is explicitly provided
+        default: "MI-R4A"
+        # Input has to be provided for the workflow to run
+        required: false
+      release:
+        # Friendly description to be shown in the UI instead of 'name'
+        #无法换行
+        #description: "是否需要发布到Release?\n(不发布也可以到Artifacts下载)"
+        #缩短长度还是解决不了手机页面的显示超出
+        #description: "是否需要发布到Release?"
+        description: "是否需要发布到Release? (不发布也可以到Artifacts下载)"
+        # Default value if no value is explicitly provided
+        default: 'yes'
+        # Input has to be provided for the workflow to run
+        required: false
+        
+env:                      # 环境变量
+  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启153行超频开关 
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "greet"
+  padavan:
+    # The type of runner that the job will run on ubuntu-latest
+    runs-on: ubuntu-20.04
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:    
+    - name: 生成版本号
+      run: |
+        whoami
+        id
+        echo 接收到的输入参数:
+        echo "${{ github.event.inputs.production }}"
+        echo "${{ github.event.inputs.release }}"
+        echo 
+        echo 当前目录:$(pwd)
+        # 版本号,用日期
+        VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        # $GITHUB_ENV变量必须要在下一个流程才生效
+        echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
+        val1="${{ github.event.inputs.production }}"
+        val2=$(echo $val1 | sed 's/ /-/')
+        echo "NAME=$VERSION+${val2}" >> $GITHUB_ENV
+        #让版本号符合版本规范 1.0.202110252117+K2P-PSG1218
+        # 2021.10.28-2133+K2P-PSG1218
+        echo "TAG=v$VERSION+${val2}" >> $GITHUB_ENV
+        ip addr
+    - name: 创建目录
+      run: |
+        echo ${{ env.NAME }}
+        echo ${{ env.TAG }}
+        sudo mkdir -m 777 -p ${{ env.DIR }}
+        sudo mkdir -m 777 -p /opt/images/
+        
+        echo 开始编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt
+        
+    - name: 准备编译环境
+      if: true
+      run: | 
+        sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
+        fakeroot kmod cpio git python3-docutils gettext automake autopoint \
+        texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
+        libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin  > /dev/null
+  
+    - name: 下载源码
+      run: |
+        git clone --depth=1 https://github.com/vipshmily/rt-n56u.git ${{ env.DIR }}  > /dev/null
+        cd ${{ env.DIR }}/toolchain-mipsel
+        sh dl_toolchain.sh > /dev/null
+        pwd
+        
+    - id: vars
+      run: |
+        echo ::set-output name=go_version::$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g')
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ steps.vars.outputs.go_version }}
+        
+    - name: 开始编译
+      if: true
+      env: 
+        #用空格分隔型号,循环编译
+        TNAME: "${{ github.event.inputs.production }}"
+      run: |
+        if [ "$TNAME" == "DEBUG" ];then
+          exit 0
+        fi
+        for m in $TNAME;
+        do
+          echo "::group::编译 ${m}"
+          cd ${{ env.DIR }}/trunk
+          cd /opt/rt-n56u/trunk
+        echo "CPU超频到$MHZ"mhz
+        echo "修改CPU频率"
+        clock=`echo "obase=16 ; ibase=10 ; (((($MHZ/20)-1)*16+2))" | bc`
+        echo "16进制$clock"
+        sed -i "554,555s:0xff:0x7ff:g" /opt/rt-n56u/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        sed -i "554,556s:0xc2:0x$clock:g" /opt/rt-n56u/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        if [ ! -f configs/templates/$TNAME.config ] ; then
+        echo "configs/templates/$TNAME.config not found "
+        exit 1
+        fi
+        cp -f configs/templates/$TNAME.config .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' configs/templates/$TNAME.config
+        ############################################################################################
+        #因不同型号配置功能不一样，所以先把配置项删除，如果你自己要添加其他的，也要写上删除这一条，切记！！！
+        ############################################################################################
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' configs/templates/$TNAME.config #删除配置项MENTOHUST
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT/d' configs/templates/$TNAME.config #删除配置项SCUTCLIENT
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS/d' configs/templates/$TNAME.config #删除配置项SS plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SSSERVER/d' configs/templates/$TNAME.config #删除配置项SS server
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER/d' configs/templates/$TNAME.config #删除配置项DNSFORWARDER
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ADBYBY/d' configs/templates/$TNAME.config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPC/d' configs/templates/$TNAME.config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPS/d' configs/templates/$TNAME.config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_TUNSAFE/d' configs/templates/$TNAME.config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALIDDNS/d' configs/templates/$TNAME.config #删除配置项阿里DDNS
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNS/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_NPC/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_IPT2SOCKS/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MICROSOCKS/d' configs/templates/$TNAME.config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' configs/templates/$TNAME.config #删除配置项超频900MHz
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' configs/templates/$TNAME.config
+        ######################################################################
+        #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
+        ######################################################################
+        echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> configs/templates/$TNAME.config #MENTOHUST
+        echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> configs/templates/$TNAME.config #SCUTCLIENT
+        echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> configs/templates/$TNAME.config #SS server
+        echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> configs/templates/$TNAME.config #DNSFORWARDER
+        echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> configs/templates/$TNAME.config #TUNSAFE
+        echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> configs/templates/$TNAME.config #可以不集成
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> configs/templates/$TNAME.config #开启超频，仅MT7621可用
+        
+        ##科学上网## 特别注意，开启科学需要开启156行的shadowsocks，否则全部有关插件都不集成
+        echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> configs/templates/$TNAME.config #科学上网插件，选择n后全部有关插件都不集成
+        echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> configs/templates/$TNAME.config # simple-obfs混淆插件
+        echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> configs/templates/$TNAME.config #集成v2ray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> configs/templates/$TNAME.config #集成xray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> configs/templates/$TNAME.config #集成trojan执行文件(1.1M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_KUMASOCKS=y" >> configs/templates/$TNAME.config #socks5服务端
+        echo "CONFIG_FIRMWARE_INCLUDE_IPT2SOCKS=y" >> configs/templates/$TNAME.config
+        echo "CONFIG_FIRMWARE_INCLUDE_MICROSOCKS=y" >> configs/templates/$TNAME.config
+        ##科学上网##
+        
+        ##广告管理##
+        echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=y" >> configs/templates/$TNAME.config #adbyby plus+
+        echo "CONFIG_FIRMWARE_INCLUDE_KOOLPROXY=n" >> configs/templates/$TNAME.config #KP广告过滤
+        ##广告管理##
+        
+        ##DNS服务##
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> configs/templates/$TNAME.config #smartdns
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=n" >> configs/templates/$TNAME.config #smartdns二进制文件
+        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> configs/templates/$TNAME.config #adg DNS去AD
+        ##DNS服务##
+        
+        ##文件管理##
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDY=n" >> configs/templates/$TNAME.config #在线文件管理服务
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDYBIN=n" >> configs/templates/$TNAME.config #集成caddu执行文件，此文件有13M,请注意固件大小。如果不集成，会从网上下载下来执行，不影响正常使用
+        ##文件管理##
+        
+        ##音乐解锁##
+        echo "CONFIG_FIRMWARE_INCLUDE_WYY=n" >> configs/templates/$TNAME.config #网易云解锁
+        echo "CONFIG_FIRMWARE_INCLUDE_WYYBIN=n" >> configs/templates/$TNAME.config #网易云解锁GO版本执行文件（4M多）注意固件超大小,不集成会自动下载
+        ##音乐解锁##
+        
+        ##内网穿透服务##
+        echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=n" >> configs/templates/$TNAME.config #zerotier ~1.3M
+        echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> configs/templates/$TNAME.config #阿里DDNS
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPC=n" >> configs/templates/$TNAME.config #内网穿透FRPC
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> configs/templates/$TNAME.config #内网穿透FRPS
+        echo "CONFIG_FIRMWARE_INCLUDE_NPC=n" >> configs/templates/$TNAME.config #npc
+        ##内网穿透服务##
+        
+          # 更新v2ray版本
+          v2_version=`curl --silent "https://api.github.com/repos/v2fly/v2ray-core/releases/latest" | jq -r '.tag_name | sub("^v";"")'`
+          sed -i "s/V2ray_VERSION := .*/V2ray_VERSION := $v2_version/g" /opt/rt-n56u/trunk/user/v2ray/Makefile
+          sed -i 's|codeload.github.com/v2ray|codeload.github.com/v2fly|g' /opt/rt-n56u/trunk/user/v2ray/Makefile
+          # 更新xray版本
+          xray_version=`curl --silent "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | jq -r '.tag_name | sub("^v";"")'`
+          sed -i "s/Xray_VERSION := .*/Xray_VERSION := $xray_version/g" /opt/rt-n56u/trunk/user/xray/Makefile
+          sed -i 's|codeload.github.com/xray|codeload.github.com/XTLS|g' /opt/rt-n56u/trunk/user/xray/Makefile
+        #########################################################################################
+        # 自定义添加其它功能请参考源码configs/templates/目录下的config文件。按照上面的格式添加即可
+        # https://github.com/hanwckf/rt-n56u/blob/master/trunk/configs/templates/
+        # 格式如下：
+        # sed -i '/自定义项/d' configs/templates/$TNAME.config
+        # echo "自定义项=y" >> configs/templates/$TNAME.config
+        #########################################################################################
+          sudo ./clear_tree || echo
+          cp -f configs/templates/$TNAME.config .config
+          sudo fakeroot ./build_firmware_modify $TNAME 0    > /dev/null
+        # sudo ./build_firmware_modify ${m}    > /dev/null
+          ls -l images
+          sudo mv -f images/*.trx /opt/images/
+          echo "::endgroup::"
+        done
+      
+    - name: 收集信息
+      if: true
+      run: |
+        cd /opt/images
+        #记录一个版本号
+        echo 完成编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt
+        
+        echo  >> /opt/images/readme.txt
+        echo 编译版本 >> /opt/images/readme.txt
+        
+        pushd ${{ env.DIR }}
+        git ls-remote --get-url origin >> /opt/images/readme.txt
+        git log -1 >> /opt/images/readme.txt
+        popd
+        
+        echo  >> /opt/images/readme.txt
+        echo md5校验值 >> /opt/images/readme.txt
+        cd /opt/images
+        #为固件文件名加上日期
+        for i in *.trx
+        do
+          #echo org $i
+          mv -v "$i" "${i%.*}-${{ env.VERSION }}.trx"
+        done
+        #测试
+        md5sum *.trx >> /opt/images/readme.txt || echo
+        ls -l      
+        
+    - name : 上传编译的固件Artifacts
+      uses: actions/upload-artifact@v2
+      if: true
+      with:
+        name: ${{ env.NAME }}
+        path: /opt/images
+        
+    - name: 发布到Release
+      if: ${{ github.event.inputs.release == 'yes' }}
+      uses: softprops/action-gh-release@v1
+      with:
+        name: zjdycj+cp-${{ env.NAME }}
+        tag_name: ${{ env.TAG }}
+        body_path: /opt/images/readme.txt
+        draft: false
+        prerelease: false
+        files: /opt/images/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
