@@ -205,7 +205,6 @@ jobs:
           sed -i 's|codeload.github.com/xray|codeload.github.com/XTLS|g' ${{ env.DIR }}/trunk/user/xray/Makefile
         #########################################################################################
         # 自定义添加其它功能请参考源码configs/templates/目录下的config文件。按照上面的格式添加即可
-        # https://github.com/hanwckf/rt-n56u/blob/master/trunk/configs/templates/
         # 格式如下：
         # sed -i '/自定义项/d' .config
         # echo "自定义项=y" >> .config
