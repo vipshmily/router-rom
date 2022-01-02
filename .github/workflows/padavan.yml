@@ -28,7 +28,7 @@ on:
         required: false
         
 env:                      # 环境变量
-  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启158行超频开关 
+  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -59,8 +59,7 @@ jobs:
         val1="${{ github.event.inputs.production }}"
         val2=$(echo $val1 | sed 's/ /-/')
         echo "NAME=$VERSION+${val2}" >> $GITHUB_ENV
-        #让版本号符合版本规范 1.0.202110252117+K2P-PSG1218
-        # 2021.10.28-2133+K2P-PSG1218
+        #让版本号符合版本规范 2021.01.02-2133+K2P-PSG1218
         echo "TAG=v$VERSION+${val2}" >> $GITHUB_ENV
         ip addr
     - name: 创建目录
@@ -145,7 +144,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config #删除配置项SRELAY
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NPC/d' .config #删除配置项NPC
         sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config #删除配置项KUMASOCKS
-        sed -i '/CONFIG_FIRMWARE_CPU_600MHZ/d' .config #删除配置项超频900MHz
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config #删除配置项超频900MHz
         ######################################################################
         #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
         ######################################################################
@@ -155,7 +154,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config #DNSFORWARDER
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
-        echo "CONFIG_FIRMWARE_CPU_600MHZ=y" >> .config #开启超频，仅MT7621可用
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config #开启超频，仅MT7621可用
 
         ##科学上网## 特别注意，开启科学需要开启161行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
