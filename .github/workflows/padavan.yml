@@ -12,7 +12,7 @@ on:
         # Friendly description to be shown in the UI instead of 'name'
         description: 设置编译的固件型号,空格分隔.
         # Default value if no value is explicitly provided
-        default: "PSG1218"
+        default: "MI-R4A K2P RM2100 R2100"
         # Input has to be provided for the workflow to run
         required: false
       release:
@@ -28,7 +28,7 @@ on:
         required: false
         
 env:                      # 环境变量
-  MHZ: 620               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
+  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启158行超频开关 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -75,11 +75,12 @@ jobs:
         
     - name: 准备编译环境
       if: true
-      run: | 
+      run: |
         sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+        sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
+        fakeroot kmod cpio git python3-docutils gettext automake autopoint \
+        texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
+        libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin  > /dev/null
   
     - name: 下载源码
       run: |
@@ -156,7 +157,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
         echo "CONFIG_FIRMWARE_CPU_600MHZ=y" >> .config #开启超频，仅MT7621可用
 
-        ##科学上网## 特别注意，开启科学需要开启160行的shadowsocks，否则全部有关插件都不集成
+        ##科学上网## 特别注意，开启科学需要开启161行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
         echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
