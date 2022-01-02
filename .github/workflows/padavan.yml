@@ -5,9 +5,9 @@ name: Padavan固件编译
 on: 
   release:
     types: [published]
-#  push:
-#    tags:
-#    - 'v*'
+  push:
+    tags:
+    - 'v*'
   #  branches: 
   #    - master
   #schedule:
@@ -48,7 +48,7 @@ jobs:
         go-version: ${{ steps.vars.outputs.go_version }}
     - name: Build Firmware
       env:
-        TNAME: "RM2100 MI-R4A"
+        TNAME: "PSG1218"
       run: |
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
