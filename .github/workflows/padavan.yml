@@ -28,7 +28,7 @@ on:
         required: false
         
 env:                      # 环境变量
-  MHZ: 620               # CPU超频频率 必须为20的倍数，开启超频需开启158行超频开关 
+  MHZ: 620               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -111,7 +111,6 @@ jobs:
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd ${{ env.DIR }}/trunk
-        #cd /opt/rt-n56u/trunk
         echo "CPU超频到$MHZ"mhz
         echo "修改CPU频率"
         clock=`echo "obase=16 ; ibase=10 ; (((($MHZ/20)-1)*16+2))" | bc`
@@ -157,7 +156,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
         echo "CONFIG_FIRMWARE_CPU_600MHZ=y" >> .config #开启超频，仅MT7621可用
 
-        ##科学上网## 特别注意，开启科学需要开启161行的shadowsocks，否则全部有关插件都不集成
+        ##科学上网## 特别注意，开启科学需要开启160行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
         echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
