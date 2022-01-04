@@ -55,7 +55,7 @@ jobs:
         VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         # $GITHUB_ENV变量必须要在下一个流程才生效
-        echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
+        echo "DIR=/opt/rt-n56u2" >> $GITHUB_ENV
         val1="${{ github.event.inputs.production }}"
         val2=$(echo $val1 | sed 's/ /-/')
         echo "NAME=$VERSION+${val2}" >> $GITHUB_ENV
@@ -83,7 +83,7 @@ jobs:
   
     - name: 下载源码
       run: |
-        git clone --depth=1 https://github.com/vipshmily/rt-n56u.git ${{ env.DIR }}  > /dev/null
+        git clone --depth=1 https://github.com/vipshmily/rt-n56u2.git ${{ env.DIR }}  > /dev/null
         cd ${{ env.DIR }}/toolchain-mipsel
         sh dl_toolchain.sh > /dev/null
         pwd
