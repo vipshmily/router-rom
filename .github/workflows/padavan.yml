@@ -113,14 +113,16 @@ jobs:
         echo "config file copy success"
         else
         exit 1
+        fi
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
-        echo "Xray.Makefile file copy success"
+        echo "Makefile file copy success"
         else
         exit 2
+        fi
         if [ -f public/V2ray.Makefile ] ; then
         mv -f public/V2ray.Makefile ${{ env.DIR }}/trunk/user/v2ray/Makefile
-        echo "V2ray.Makefile file copy success"
+        echo "Makefile file copy success"
         else
         exit 3 
         fi 
