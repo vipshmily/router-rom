@@ -4,46 +4,90 @@ name: Padavan固件编译
 
 # Controls when the action will run. Workflow runs when manually triggered using the UI
 # or API.
-on: 
-  release:
-    types: [published]
-#  push:
-#    tags:
-#    - 'v*'
-  #  branches: 
-  #    - master
-  #schedule:
-    #- cron: 0 17 * * 4
-  #watch:
-    #types: [started]
+on:
   workflow_dispatch:
+    # Inputs the workflow accepts.
+    inputs:
+      production:
+        # Friendly description to be shown in the UI instead of 'name'
+        description: 设置编译的固件型号,空格分隔.
+        # Default value if no value is explicitly provided
+        default: "PSG1218"
+        # Input has to be provided for the workflow to run
+        required: false
+      release:
+        # Friendly description to be shown in the UI instead of 'name'
+        #无法换行
+        #description: "是否需要发布到Release?\n(不发布也可以到Artifacts下载)"
+        #缩短长度还是解决不了手机页面的显示超出
+        #description: "是否需要发布到Release?"
+        description: "是否需要发布到Release? (不发布也可以到Artifacts下载)"
+        # Default value if no value is explicitly provided
+        default: 'yes'
+        # Input has to be provided for the workflow to run
+        required: false
+        
 env:                      # 环境变量
-  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启95行超频开关
+  MHZ: 620               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build:
+  # This workflow contains a single job called "greet"
+  padavan:
+    # The type of runner that the job will run on ubuntu-latest
     runs-on: ubuntu-latest
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout
       uses: actions/checkout@master
-    - name: DIR
+      
+    - name: 生成版本号
       run: |
-       echo "DIR=/opt/rt-n56u2" >> $GITHUB_ENV
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
+        whoami
+        id
+        echo 接收到的输入参数:
+        echo "${{ github.event.inputs.production }}"
+        echo "${{ github.event.inputs.release }}"
+        echo 
+        echo 当前目录:$(pwd)
+        # 版本号,用日期
+        VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        # $GITHUB_ENV变量必须要在下一个流程才生效
+        echo "DIR=/opt/rt-n56u2" >> $GITHUB_ENV
+        val1="${{ github.event.inputs.production }}"
+        val2=$(echo $val1 | sed 's/ /-/')
+        echo "NAME=$VERSION+${val2}" >> $GITHUB_ENV
+        #让版本号符合版本规范 1.0.202110252117+K2P-PSG1218
+        # 2021.10.28-2133+K2P-PSG1218
+        echo "TAG=v$VERSION+${val2}" >> $GITHUB_ENV
+        ip addr
+    - name: 创建目录
       run: |
+        echo ${{ env.NAME }}
+        echo ${{ env.TAG }}
+        sudo mkdir -m 777 -p ${{ env.DIR }}
+        sudo mkdir -m 777 -p /opt/images/
+        
+        echo 开始编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt
+        
+    - name: 准备编译环境
+      if: true
+      run: | 
         sudo apt-get update
         sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
         cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
         pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
-    - name: Clone source code
+  
+    - name: 下载源码
       run: |
-        git clone --depth=1 https://github.com/vipshmily/rt-n56u2.git /opt/rt-n56u2
-        cd /opt/rt-n56u2/toolchain-mipsel
-        sh dl_toolchain.sh
-        mkdir -p /opt/images/
+        git clone --depth=1 https://github.com/vipshmily/rt-n56u2.git ${{ env.DIR }}  > /dev/null
+        cd ${{ env.DIR }}/toolchain-mipsel
+        sh dl_toolchain.sh > /dev/null
+        pwd
+        
     - id: vars
       run: |
         echo ::set-output name=go_version::$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g')
@@ -51,21 +95,42 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
-    - name: Build Firmware
-      env:
-        TNAME: "PSG1218"
+        
+    - name: 开始编译
+      if: true
+      env: 
+        #用空格分隔型号,循环编译
+        TNAME: "${{ github.event.inputs.production }}"
       run: |
+        if [ -f public/shadowsocks.sh ] ; then
+        mv -f public/shadowsocks.sh ${{ env.DIR }}/trunk/user/shadowsocks/scripts/shadowsocks.sh
+        echo "shadowsocks SH copy success"
+        else
+        exit 0
+        fi 
+        if [ -f public/PSG1218_hzn.config ] ; then
+        mv -f public/PSG1218_hzn.config ${{ env.DIR }}/trunk/configs/templates/PSG1218_hzn.config
+        echo "config file copy success"
+        else
+        exit 1
+        fi 
+        if [ "$TNAME" == "DEBUG" ];then
+          exit 2
+        fi
+        for m in $TNAME;
+        do
+        echo "::group::编译 ${m}"
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
-        cd /opt/rt-n56u2/trunk
+        cd ${{ env.DIR }}/trunk
         echo "CPU超频到$MHZ"mhz
         echo "修改CPU频率"
         clock=`echo "obase=16 ; ibase=10 ; (((($MHZ/20)-1)*16+2))" | bc`
         echo "16进制$clock"
-        sed -i "554,555s:0xff:0x7ff:g" /opt/rt-n56u2/trunk/linux-3.4.x/arch/mips/rt2880/init.c
-        sed -i "554,556s:0xc2:0x$clock:g" /opt/rt-n56u2/trunk/linux-3.4.x/arch/mips/rt2880/init.c
-        for m in $TNAME;
-        do
+        sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        #for m in $TNAME;
+        #do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
         exit 1
@@ -91,7 +156,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config #删除配置项SRELAY
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NPC/d' .config #删除配置项NPC
         sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config #删除配置项KUMASOCKS
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config #删除配置项超频900MHz
+        sed -i '/CONFIG_FIRMWARE_CPU_600MHZ/d' .config #删除配置项超频900MHz
         ######################################################################
         #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
         ######################################################################
@@ -101,12 +166,12 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config #DNSFORWARDER
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
-        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config #开启超频，仅MT7621可用
-        ##科学上网## 特别注意，开启科学需要开启159行的shadowsocks，否则全部有关插件都不集成
+        echo "CONFIG_FIRMWARE_CPU_600MHZ=y" >> .config #开启超频，仅MT7621可用
+        ##科学上网## 特别注意，开启科学需要开启160行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
         echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
-        echo "CONFIG_FIRMWARE_INCLUDE_XRAY=y" >> .config #集成xray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> .config #集成xray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
         echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config #集成trojan执行文件(1.1M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
         echo "CONFIG_FIRMWARE_INCLUDE_KUMASOCKS=y" >> .config #socks5服务端
         ##科学上网##
@@ -155,25 +220,60 @@ jobs:
         # echo "自定义项=y" >> .config
         #########################################################################################
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
+        sudo ./clear_tree || echo
         sudo ./clear_tree_simple
-        sudo ./build_firmware_modify $m 0
+        sudo ./build_firmware_modify $m 0    > /dev/null
+        #sudo ./build_firmware_modify ${m}    > /dev/null
+        ls -l images
         sudo mv -f images/*.trx /opt/images/
+        echo "::endgroup::"
         done
-    - name : Upload packages
-      uses: actions/upload-artifact@master
-      if: always()
+      
+    - name: 收集信息
+      if: true
+      run: |
+        cd /opt/images
+        #记录一个版本号
+        echo 完成编译时间 >> /opt/images/readme.txt
+        TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt
+        
+        echo  >> /opt/images/readme.txt
+        echo 编译版本 >> /opt/images/readme.txt
+        
+        pushd ${{ env.DIR }}
+        git ls-remote --get-url origin >> /opt/images/readme.txt
+        git log -1 >> /opt/images/readme.txt
+        popd
+        
+        echo  >> /opt/images/readme.txt
+        echo md5校验值 >> /opt/images/readme.txt
+        cd /opt/images
+        #为固件文件名加上日期
+        for i in *.trx
+        do
+          #echo org $i
+          mv -v "$i" "${i%.*}-${{ env.VERSION }}.trx"
+        done
+        #测试
+        md5sum *.trx >> /opt/images/readme.txt || echo
+        ls -l      
+        
+    - name : 上传编译的固件Artifacts
+      uses: actions/upload-artifact@v2
+      if: true
       with:
-        name: Padavan-packages
+        name: ${{ env.NAME }}
         path: /opt/images
+        
     - name: 发布到Release
+      if: ${{ github.event.inputs.release == 'yes' }}
       uses: softprops/action-gh-release@v1
       with:
-          name: ${{ env.NAME }}
-          tag_name: ${{ github.ref }}
-          #body_path: /opt/images/readme.txt
-          draft: false
-          prerelease: false
-          files: |
-            /opt/bin/*.trx
-    env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: zjdycj+cp-${{ env.NAME }}
+        tag_name: ${{ env.TAG }}
+        body_path: /opt/images/readme.txt
+        draft: false
+        prerelease: false
+        files: /opt/images/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
