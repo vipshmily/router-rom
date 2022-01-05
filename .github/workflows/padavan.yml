@@ -113,9 +113,19 @@ jobs:
         echo "config file copy success"
         else
         exit 1
+        if [ -f public/Makefile.Xray ] ; then
+        mv -f public/Makefile.Xray ${{ env.DIR }}/trunk/user/xray/Makefile
+        echo "Makefile.Xray copy success"
+        else
+        exit 2
+        if [ -f public/Makefile.V2ray ] ; then
+        mv -f public/Makefile.V2ray ${{ env.DIR }}/trunk/user/v2ray/Makefile
+        echo "Makefile.V2ray copy success"
+        else
+        exit 3 
         fi 
         if [ "$TNAME" == "DEBUG" ];then
-          exit 2
+          exit 4
         fi
         for m in $TNAME;
         do
@@ -182,7 +192,7 @@ jobs:
         ##广告管理##
         
         ##DNS服务##
-        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> .config #smartdns
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=n" >> .config #smartdns
         echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=n" >> .config #smartdns二进制文件
         echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config #adg DNS去AD
         ##DNS服务##
@@ -204,6 +214,12 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> .config #内网穿透FRPS
         echo "CONFIG_FIRMWARE_INCLUDE_NPC=n" >> .config #npc
         ##内网穿透服务##
+        
+        # build-in smartdns
+          mkdir -p user/smartdns
+          wget -P user/smartdns/ https://raw.githubusercontent.com/felix-fly/v2ray-padavan-doh/master/padavan/smartdns/Makefile
+          wget https://raw.githubusercontent.com/felix-fly/v2ray-padavan-doh/master/padavan/user/Makefile -O user/Makefile
+          sed -i '$a\export SSL_CERT_FILE=/usr/lib/cacert.pem' user/scripts/profile
         
           # 更新v2ray版本
           v2_version=`curl --silent "https://api.github.com/repos/v2fly/v2ray-core/releases/latest" | jq -r '.tag_name | sub("^v";"")'`
