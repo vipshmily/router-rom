@@ -15,7 +15,11 @@ CONFIG_UDP_FILE=/tmp/${NAME}_u.json
 CONFIG_SOCK5_FILE=/tmp/${NAME}_s.json
 CONFIG_KUMASOCKS_FILE=/tmp/kumasocks.toml
 v2_json_file="/tmp/v2-redir.json"
+xray_json_file="/tmp/v2-redir.json"
 trojan_json_file="/tmp/tj-redir.json"
+v2_bin="/usr/bin/v2ray"
+xr_bin="/usr/bin/v2ray"
+tj_bin="/usr/bin/trojan"
 server_count=0
 redir_tcp=0
 v2ray_enable=0
@@ -23,6 +27,7 @@ redir_udp=0
 tunnel_enable=0
 local_enable=0
 pdnsd_enable_flag=0
+chinadnsng_enable_flag=0
 wan_bp_ips="/tmp/whiteip.txt"
 wan_fw_ips="/tmp/blackip.txt"
 lan_fp_ips="/tmp/lan_ip.txt"
@@ -39,8 +44,9 @@ find_bin() {
 	ssr) ret="/usr/bin/ssr-redir" ;;
 	ssr-local) ret="/usr/bin/ssr-local" ;;
 	ssr-server) ret="/usr/bin/ssr-server" ;;
-	v2ray) ret="/tmp/v2ray" ;;
-	trojan) ret="/tmp/trojan" ;;
+	v2ray) ret="$v2_bin" ;;
+	xray) ret="$v2_bin" ;;
+	trojan) ret="$tj_bin" ;;
 	socks5) ret="/usr/bin/ipt2socks" ;;
 	esac
 	echo $ret
@@ -65,15 +71,32 @@ local type=$stype
 		sed -i 's/\\//g' $config_file
 		;;
 	trojan)
+		tj_bin="/usr/bin/trojan"
+		if [ ! -f "$tj_bin" ]; then
 		if [ ! -f "/tmp/trojan" ]; then
-			logger -t "SS" "trojan二进制文件下载失败，可能是地址失效或者网络异常！"
-			nvram set ss_enable=0
-			ssp_close
+			curl -L -k -s -o /tmp/trojan --connect-timeout 10 --retry 3 https://cdn.jsdelivr.net/gh/vipshmily/OutSide/trojan
+			if [ ! -f "/tmp/trojan" ]; then
+				logger -t "SS" "trojan二进制文件下载失败，可能是地址失效或者网络异常！自动切换到备用下载！"
+				#curl -L -k -s -o /tmp/trojan --connect-timeout 10 --retry 3 https://bin.wololo.vercel.app/trojan
+				curl -L -k -s -o /tmp/trojan --connect-timeout 10 --retry 3 https://ghproxy.com/https://github.com/vipshmily/OutSide/blob/main/trojan
+				if [ ! -f "/tmp/trojan" ]; then
+					logger -t "SS" "trojan二进制文件备用下载失败！请自查网络！"
+					nvram set ss_enable=0
+					ssp_close
+				else
+					logger -t "SS" "trojan二进制文件备用下载成功"
+					chmod -R 777 /tmp/trojan
+					tj_bin="/tmp/trojan"
+				fi
+			else
+				logger -t "SS" "trojan二进制文件下载成功"
+				chmod -R 777 /tmp/trojan
+				tj_bin="/tmp/trojan"
+			fi
 		else
-			logger -t "SS" "trojan二进制文件下载成功或者已存在"
-			chmod -R 777 /tmp/trojan
+			tj_bin="/tmp/trojan"		
 		fi
-		#tj_file=$trojan_json_file
+		fi
 		if [ "$2" = "0" ]; then
 		lua /etc_ro/ss/gentrojanconfig.lua $1 nat 1080 >$trojan_json_file
 		sed -i 's/\\//g' $trojan_json_file
@@ -83,13 +106,30 @@ local type=$stype
 		fi
 		;;
 	v2ray)
+		v2_bin="/usr/bin/v2ray"
+		if [ ! -f "$v2_bin" ]; then
 		if [ ! -f "/tmp/v2ray" ]; then
-			logger -t "SS" "v2ray二进制文件下载失败，可能是地址失效或者网络异常！"
-			nvram set ss_enable=0
-			ssp_close
+			curl -L -k -s -o /tmp/v2ray --connect-timeout 10 --retry 3 https://cdn.jsdelivr.net/gh/vipshmily/OutSide/xray
+			if [ ! -f "/tmp/v2ray" ]; then
+				logger -t "SS" "Xray二进制文件下载失败，可能是地址失效或者网络异常！自动切换到备用下载！"
+				curl -L -k -s -o /tmp/v2ray --connect-timeout 10 --retry 3 https://ghproxy.com/https://github.com/vipshmily/OutSide/blob/main/xray
+				if [ ! -f "/tmp/v2ray" ]; then
+					logger -t "SS" "Xray二进制文件备用下载失败！请自查网络！"
+					nvram set ss_enable=0
+					ssp_close
+				else
+					logger -t "SS" "Xray二进制文件备用下载成功"
+					chmod -R 777 /tmp/v2ray
+					v2_bin="/tmp/v2ray"
+				fi
+			else
+				logger -t "SS" "Xray二进制文件下载成功"
+				chmod -R 777 /tmp/v2ray
+				v2_bin="/tmp/v2ray"
+			fi
 		else
-			logger -t "SS" "v2ray二进制文件下载成功或者已存在"
-			chmod -R 777 /tmp/v2ray
+				v2_bin="/tmp/v2ray"
+		fi
 		fi
 		v2ray_enable=1
 		if [ "$2" = "1" ]; then
@@ -100,6 +140,41 @@ local type=$stype
 		sed -i 's/\\//g' $v2_json_file
 		fi
 		;;
+	xray)
+		v2_bin="/usr/bin/v2ray"
+		if [ ! -f "$v2_bin" ]; then
+		if [ ! -f "/tmp/v2ray" ]; then
+			curl -L -k -s -o /tmp/v2ray --connect-timeout 10 --retry 3 https://cdn.jsdelivr.net/gh/vipshmily/OutSide/xray
+			if [ ! -f "/tmp/v2ray" ]; then
+				logger -t "SS" "Xray二进制文件下载失败，可能是地址失效或者网络异常！自动切换到备用下载！"
+				curl -L -k -s -o /tmp/v2ray --connect-timeout 10 --retry 3 https://ghproxy.com/https://github.com/vipshmily/OutSide/blob/main/xray
+				if [ ! -f "/tmp/v2ray" ]; then
+					logger -t "SS" "Xray二进制文件备用下载失败！请自查网络！"
+					nvram set ss_enable=0
+					ssp_close
+				else
+					logger -t "SS" "Xray二进制文件备用下载成功"
+					chmod -R 777 /tmp/v2ray
+					v2_bin="/tmp/v2ray"
+				fi
+			else
+				logger -t "SS" "Xray二进制文件下载成功"
+				chmod -R 777 /tmp/v2ray
+				v2_bin="/tmp/v2ray"
+			fi
+		else
+				v2_bin="/tmp/v2ray"
+		fi
+		fi
+		v2ray_enable=1
+		if [ "$2" = "1" ]; then
+		lua /etc_ro/ss/genxrayconfig.lua $1 udp 1080 >/tmp/v2-ssr-reudp.json
+		sed -i 's/\\//g' /tmp/v2-ssr-reudp.json
+		else
+		lua /etc_ro/ss/genxrayconfig.lua $1 tcp 1080 >$v2_json_file
+		sed -i 's/\\//g' $v2_json_file
+		fi
+		;;	
 	esac
 }
 
@@ -112,19 +187,6 @@ get_arg_out() {
 }
 
 start_rules() {
-	local stype=$(nvram get d_type)
-	case "$stype" in
-	trojan)
-		if [ ! -f "/tmp/trojan" ];then
-			curl -k -s -o /tmp/trojan --connect-timeout 10 --retry 3 https://cdn.jsdelivr.net/gh/wangziyingwen/OutSide/trojan/trojan
-		fi
-		;;
-	v2ray)
-		if [ ! -f "/tmp/v2ray" ];then
-			curl -k -s -o /tmp/v2ray --connect-timeout 10 --retry 3 https://cdn.jsdelivr.net/gh/wangziyingwen/OutSide/v2ray/v2ray
-		fi
-		;;
-	esac
     logger -t "SS" "正在添加防火墙规则..."
 	lua /etc_ro/ss/getconfig.lua $GLOBAL_SERVER > /tmp/server.txt
 	server=`cat /tmp/server.txt` 
@@ -239,6 +301,10 @@ start_redir_tcp() {
 		$bin -config $v2_json_file >/dev/null 2>&1 &
 		echo "$(date "+%Y-%m-%d %H:%M:%S") $($bin -version | head -1) 启动成功!" >>/tmp/ssrplus.log
 		;;
+	xray)
+		$bin -config $v2_json_file >/dev/null 2>&1 &
+		echo "$(date "+%Y-%m-%d %H:%M:%S") $($bin -version | head -1) 启动成功!" >>/tmp/ssrplus.log
+		;;	
 	socks5)
 		for i in $(seq 1 $threads); do
 		lua /etc_ro/ss/gensocks.lua $GLOBAL_SERVER 1080 >/dev/null 2>&1 &
@@ -268,6 +334,10 @@ start_redir_udp() {
 			gen_config_file $UDP_RELAY_SERVER 1
 			$bin -config /tmp/v2-ssr-reudp.json >/dev/null 2>&1 &
 			;;
+		xray)
+			gen_config_file $UDP_RELAY_SERVER 1
+			$bin -config /tmp/v2-ssr-reudp.json >/dev/null 2>&1 &
+			;;	
 		trojan)
 			gen_config_file $UDP_RELAY_SERVER 1
 			$bin --config /tmp/trojan-ssr-reudp.json >/dev/null 2>&1 &
@@ -300,23 +370,24 @@ case "$run_mode" in
 		ipset -! restore </tmp/china.ipset 2>/dev/null
 		rm -f /tmp/china.ipset
 		if [ $(nvram get ss_chdns) = 1 ]; then
-		logger -t "SS" "下载cdn域名文件..."
-		wget --no-check-certificate --timeout=8 -qO - https://gitee.com/bkye/rules/raw/master/cdn.txt > /tmp/cdn.txt
-		if [ ! -f "/tmp/cdn.txt" ]; then
-        logger -t "SS" "cdn域名文件下载失败，可能是地址失效或者网络异常！可能会影响部分国内域名解析了国外的IP！"
-        else
-        logger -t "SS" "cdn域名文件下载成功"
-		fi
-		logger -st "SS" "启动chinadns..."
-		dns2tcp -L"127.0.0.1#5353" -R"$(nvram get tunnel_forward)" >/dev/null 2>&1 &
-		chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china -m /tmp/cdn.txt >/dev/null 2>&1 &
-	sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
-cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
+			chinadnsng_enable_flag=1
+			logger -t "SS" "下载cdn域名文件..."
+			wget --no-check-certificate --timeout=8 -qO - https://raw.githubusercontent.com/hq450/fancyss/master/rules/cdn.txt > /tmp/cdn.txt
+			if [ ! -f "/tmp/cdn.txt" ]; then
+				logger -t "SS" "cdn域名文件下载失败，可能是地址失效或者网络异常！可能会影响部分国内域名解析了国外的IP！"
+			else
+				logger -t "SS" "cdn域名文件下载成功"
+			fi
+			logger -st "SS" "启动chinadns..."
+			dns2tcp -L"127.0.0.1#5353" -R"$(nvram get tunnel_forward)" >/dev/null 2>&1 &
+			chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china -M -m /tmp/cdn.txt >/dev/null 2>&1 &
+			sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
+			sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
+			cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
 no-resolv
 server=127.0.0.1#65353
 EOF
-    fi
+    		fi
 	;;
 	gfw)
 		if [ $(nvram get pdnsd_enable) = 0 ]; then
@@ -348,22 +419,22 @@ EOF
 }
 
 start_AD() {
-mkdir -p /tmp/dnsmasq.dom
-curl -k -s -o /tmp/adnew.conf --connect-timeout 10 --retry 3 $(nvram get ss_adblock_url)
-if [ ! -f "/tmp/adnew.conf" ]; then
-logger -t "SS" "AD文件下载失败，可能是地址失效或者网络异常！"
-else
-logger -t "SS" "AD文件下载成功"
-if [ -f "/tmp/adnew.conf" ]; then
-check = `grep -wq "address=" /tmp/adnew.conf`
-  if [ ! -n "$check" ] ; then
-    cp /tmp/adnew.conf /tmp/dnsmasq.dom/ad.conf
-  else
-    cat /tmp/adnew.conf | grep ^\|\|[^\*]*\^$ | sed -e 's:||:address\=\/:' -e 's:\^:/0\.0\.0\.0:' > /tmp/dnsmasq.dom/ad.conf
-  fi
-fi
-fi
-rm -f /tmp/adnew.conf
+	mkdir -p /tmp/dnsmasq.dom
+	curl -k -s -o /tmp/adnew.conf --connect-timeout 10 --retry 3 $(nvram get ss_adblock_url)
+	if [ ! -f "/tmp/adnew.conf" ]; then
+		logger -t "SS" "AD文件下载失败，可能是地址失效或者网络异常！"
+	else
+		logger -t "SS" "AD文件下载成功"
+		if [ -f "/tmp/adnew.conf" ]; then
+			check = `grep -wq "address=" /tmp/adnew.conf`
+	  		if [ ! -n "$check" ] ; then
+	    			cp /tmp/adnew.conf /tmp/dnsmasq.dom/ad.conf
+	  		else
+			    cat /tmp/adnew.conf | grep ^\|\|[^\*]*\^$ | sed -e 's:||:address\=\/:' -e 's:\^:/0\.0\.0\.0:' > /tmp/dnsmasq.dom/ad.conf
+			fi
+		fi
+	fi
+	rm -f /tmp/adnew.conf
 }
 
 
@@ -388,6 +459,12 @@ start_local() {
 		;;
 	v2ray)
 		lua /etc_ro/ss/genv2config.lua $local_server tcp 0 $s5_port >/tmp/v2-ssr-local.json
+		sed -i 's/\\//g' /tmp/v2-ssr-local.json
+		$bin -config /tmp/v2-ssr-local.json >/dev/null 2>&1 &
+		echo "$(date "+%Y-%m-%d %H:%M:%S") Global_Socks5:$($bin -version | head -1) Started!" >>/tmp/ssrplus.log
+		;;
+	xray)
+		lua /etc_ro/ss/genxrayconfig.lua $local_server tcp 0 $s5_port >/tmp/v2-ssr-local.json
 		sed -i 's/\\//g' /tmp/v2-ssr-local.json
 		$bin -config /tmp/v2-ssr-local.json >/dev/null 2>&1 &
 		echo "$(date "+%Y-%m-%d %H:%M:%S") Global_Socks5:$($bin -version | head -1) Started!" >>/tmp/ssrplus.log
@@ -423,12 +500,19 @@ rules() {
 
 start_watchcat() {
 	if [ $(nvram get ss_watchcat) = 1 ]; then
-		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+v2ray_enable+local_enable+pdnsd_enable_flag
+		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+v2ray_enable+local_enable+pdnsd_enable_flag+chinadnsng_enable_flag
 		if [ $total_count -gt 0 ]; then
 			#param:server(count) redir_tcp(0:no,1:yes)  redir_udp tunnel kcp local gfw
-			/usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $v2ray_enable $local_enable $pdnsd_enable_flag >/dev/null 2>&1 &
+			/usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $v2ray_enable $local_enable $pdnsd_enable_flag $chinadnsng_enable_flag >/dev/null 2>&1 &
 		fi
 	fi
+	#if [ $(nvram get ss_watchcat) = 1 ]; then
+		#let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+xray_enable+local_enable+pdnsd_enable_flag+chinadnsng_enable_flag
+		#if [ $total_count -gt 0 ]; then
+			#param:server(count) redir_tcp(0:no,1:yes)  redir_udp tunnel kcp local gfw
+			#/usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $xray_enable $local_enable $pdnsd_enable_flag $chinadnsng_enable_flag >/dev/null 2>&1 &
+		#fi
+	#fi
 }
 
 auto_update() {
@@ -503,7 +587,7 @@ clear_iptable()
 kill_process() {
 	v2ray_process=$(pidof v2ray)
 	if [ -n "$v2ray_process" ]; then
-		logger -t "SS" "关闭V2Ray进程..."
+		logger -t "SS" "关闭Xray进程..."
 		killall v2ray >/dev/null 2>&1
 		kill -9 "$v2ray_process" >/dev/null 2>&1
 	fi
@@ -621,4 +705,3 @@ reserver)
 	#exit 0
 	;;
 esac
-
