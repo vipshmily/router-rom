@@ -218,6 +218,7 @@ jobs:
         ##内网穿透服务##
         
         mkdir /opt/bin
+         wget https://raw.githubusercontent.com/vipshmily/router-rom/main1/public/PSG1218.config -O configs/templates/PSG1218.config
         # build-in smartdns
           mkdir -p user/smartdns
           wget -P user/smartdns/ https://raw.githubusercontent.com/felix-fly/v2ray-padavan-doh/master/padavan/smartdns/Makefile
