@@ -12,7 +12,7 @@ on:
         # Friendly description to be shown in the UI instead of 'name'
         description: 设置编译的固件型号,空格分隔.
         # Default value if no value is explicitly provided
-        default: "PSG1218"
+        default: "MI-R4A"
         # Input has to be provided for the workflow to run
         required: false
       release:
@@ -28,7 +28,7 @@ on:
         required: false
         
 env:                      # 环境变量
-  MHZ: 620               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
+  MHZ: 1100               # CPU超频频率 必须为20的倍数，开启超频需开启157行超频开关 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -114,12 +114,12 @@ jobs:
         else
         exit 1
         fi 
-        if [ -f public/PSG1218.config ] ; then
-        mv -f public/PSG1218.config ${{ env.DIR }}/trunk/configs/templates/PSG1218.config
-        echo "config file copy success"
-        else
-        exit 2
-        fi
+        #if [ -f public/PSG1218.config ] ; then
+        #mv -f public/PSG1218.config ${{ env.DIR }}/trunk/configs/templates/PSG1218.config
+        #echo "config file copy success"
+        #else
+        #exit 2
+        #fi
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
         echo "Makefile file copy success"
@@ -174,7 +174,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config #删除配置项SRELAY
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NPC/d' .config #删除配置项NPC
         sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config #删除配置项KUMASOCKS
-        sed -i '/CONFIG_FIRMWARE_CPU_600MHZ/d' .config #删除配置项超频900MHz
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config #删除配置项超频900MHz
         ######################################################################
         #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
         ######################################################################
@@ -184,7 +184,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config #DNSFORWARDER
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
-        echo "CONFIG_FIRMWARE_CPU_600MHZ=y" >> .config #开启超频，仅MT7621可用
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config #开启超频，仅MT7621可用
         ##科学上网## 特别注意，开启科学需要开启160行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
