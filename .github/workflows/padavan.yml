@@ -222,14 +222,6 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_NPC=n" >> .config #npc
         ##内网穿透服务##
         
-        mkdir /opt/bin
-         wget https://raw.githubusercontent.com/vipshmily/router-rom/main1/public/PSG1218.config -O configs/templates/PSG1218.config
-        # build-in smartdns
-          mkdir -p user/smartdns
-          wget -P user/smartdns/ https://raw.githubusercontent.com/felix-fly/v2ray-padavan-doh/master/padavan/smartdns/Makefile
-          #wget https://raw.githubusercontent.com/felix-fly/v2ray-padavan-doh/master/padavan/user/Makefile -O user/Makefile
-          sed -i '$a\export SSL_CERT_FILE=/usr/lib/cacert.pem' user/scripts/profile
-        
           # 更新v2ray版本
           v2_version=`curl --silent "https://api.github.com/repos/v2fly/v2ray-core/releases/latest" | jq -r '.tag_name | sub("^v";"")'`
           sed -i "s/V2ray_VERSION := .*/V2ray_VERSION := $v2_version/g" ${{ env.DIR }}/trunk/user/v2ray/Makefile
