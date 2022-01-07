@@ -52,7 +52,7 @@ jobs:
         echo 
         echo 当前目录:$(pwd)
         # 版本号,用日期
-        VERSION=$(TZ='Asia/Shanghai'  date  '+%Y.%m.%d-%H:%M')
+        VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         # $GITHUB_ENV变量必须要在下一个流程才生效
         echo "DIR=/opt/rt-n56u2" >> $GITHUB_ENV
