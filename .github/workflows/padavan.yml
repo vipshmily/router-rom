@@ -70,6 +70,8 @@ jobs:
         
     - name: 准备编译环境
       if: true
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: | 
         sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
         fakeroot kmod cpio git python3-docutils gettext automake autopoint \
@@ -77,8 +79,6 @@ jobs:
         libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin  > /dev/null
   
     - name: 下载源码
-      env:
-        DEBIAN_FRONTEND: noninteractive
       run: |
         git clone --depth=1 https://github.com/vipshmily/rt-n56u.git ${{ env.DIR }}  > /dev/null
         cd ${{ env.DIR }}/toolchain-mipsel
