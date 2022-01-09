@@ -74,6 +74,8 @@ jobs:
         
     - name: 准备编译环境
       if: true
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update
         sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
