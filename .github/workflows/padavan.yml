@@ -77,6 +77,8 @@ jobs:
         libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin  > /dev/null
   
     - name: 下载源码
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
         git clone --depth=1 https://github.com/vipshmily/rt-n56u.git ${{ env.DIR }}  > /dev/null
         cd ${{ env.DIR }}/toolchain-mipsel
