@@ -102,23 +102,25 @@ jobs:
         #用空格分隔型号,循环编译
         TNAME: "${{ github.event.inputs.production }}"
       run: |
-        if [ "$TNAME" == "DEBUG" ];then
-          exit 1
-        fi
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
         echo "Makefile file copy success"
         else
-        exit 2
+        exit 1
         fi
         if [ -f public/V2ray.Makefile ] ; then
         mv -f public/V2ray.Makefile ${{ env.DIR }}/trunk/user/v2ray/Makefile
         echo "Makefile file copy success"
         else
-        exit 3 
+        exit 2 
         fi
         cp -f public/ssr-monitor ${{ env.DIR }}/trunk/user/shadowsocks/scripts
         cp -f public/shadowsocks.sh ${{ env.DIR }}/trunk/user/shadowsocks/scripts
+        if [ "$TNAME" == "DEBUG" ];then
+          exit 3
+        fi
+        for m in $TNAME;
+        do
         echo "::group::编译 ${m}"
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
@@ -129,14 +131,12 @@ jobs:
         echo "16进制$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
-        for m in $TNAME;
-        do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
         exit 0
         fi
         cp -f configs/templates/$m.config .config
-        #sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
         ############################################################################################
         #因不同型号配置功能不一样，所以先把配置项删除，如果你自己要添加其他的，也要写上删除这一条，切记！！！
         ############################################################################################
@@ -158,7 +158,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NPC/d' .config #删除配置项NPC
         sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config #删除配置项KUMASOCKS
         sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config #删除配置项超频900MHz
-        #sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
         ######################################################################
         #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
         ######################################################################
