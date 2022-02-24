@@ -96,10 +96,8 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
         
-    - name: 开始编译
-      if: true
-      env: 
-        #用空格分隔型号,循环编译
+    - name: Build Firmware
+      env:
         TNAME: "${{ github.event.inputs.production }}"
       run: |
         if [ -f public/Xray.Makefile ] ; then
@@ -116,12 +114,6 @@ jobs:
         fi
         cp -f public/ssr-monitor ${{ env.DIR }}/trunk/user/shadowsocks/scripts
         cp -f public/shadowsocks.sh ${{ env.DIR }}/trunk/user/shadowsocks/scripts
-        if [ "$TNAME" == "DEBUG" ];then
-          exit 3
-        fi
-        for m in $TNAME;
-        do
-        echo "::group::编译 ${m}"
         cwd=`pwd`
         CONFIG_TOOLCHAIN_DIR=${cwd//\//\\\/}\\/toolchain-mipsel
         cd ${{ env.DIR }}/trunk
@@ -131,6 +123,8 @@ jobs:
         echo "16进制$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+        for m in $TNAME;
+        do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
         exit 0
