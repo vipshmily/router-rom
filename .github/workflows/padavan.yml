@@ -108,7 +108,7 @@ jobs:
         fi
         for m in $TNAME;
         do
-        echo "::group::编译 ${m}"
+        #echo "::group::编译 ${m}"
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
         echo "Makefile file copy success"
