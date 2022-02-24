@@ -12,7 +12,7 @@ on:
         # Friendly description to be shown in the UI instead of 'name'
         description: 设置编译的固件型号,空格分隔.
         # Default value if no value is explicitly provided
-        default: "MI-R4A NETGEAR-BZV"
+        default: "MI-R4A RM2100 R2100 K2P NETGEAR-BZV"
         # Input has to be provided for the workflow to run
         required: false
       release:
@@ -40,7 +40,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout
-      uses: actions/checkout@master
+      uses: actions/checkout@main
       
     - name: 生成版本号
       run: |
@@ -59,6 +59,7 @@ jobs:
         val1="${{ github.event.inputs.production }}"
         #val2=$(echo $val1 | sed 's/ /-/')
         echo "NAME=${val1}_$VERSION" >> $GITHUB_ENV
+        #让版本号符合版本规范 2022.01.02-2133+K2P-PSG1218
         echo "TAG=v$VERSION" >> $GITHUB_ENV
         ip addr
     - name: 创建目录
@@ -76,10 +77,10 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: | 
-        sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+        sudo apt install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
+        fakeroot kmod cpio git python3-docutils gettext automake autopoint \
+        texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
+        libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin  > /dev/null
   
     - name: 下载源码
       run: |
@@ -96,21 +97,29 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
         
-    - name: Build Firmware
-      env:
+    - name: 开始编译
+      if: true
+      env: 
+        #用空格分隔型号,循环编译
         TNAME: "${{ github.event.inputs.production }}"
       run: |
+        if [ "$TNAME" == "DEBUG" ];then
+          exit 1
+        fi
+        for m in $TNAME;
+        do
+        echo "::group::编译 ${m}"
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
         echo "Makefile file copy success"
         else
-        exit 1
+        exit 2
         fi
         if [ -f public/V2ray.Makefile ] ; then
         mv -f public/V2ray.Makefile ${{ env.DIR }}/trunk/user/v2ray/Makefile
         echo "Makefile file copy success"
         else
-        exit 2 
+        exit 3 
         fi
         cp -f public/ssr-monitor ${{ env.DIR }}/trunk/user/shadowsocks/scripts
         cp -f public/shadowsocks.sh ${{ env.DIR }}/trunk/user/shadowsocks/scripts
@@ -123,11 +132,11 @@ jobs:
         echo "16进制$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
-        for m in $TNAME;
-        do
+        #for m in $TNAME;
+        #do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
-        exit 0
+        exit 1
         fi
         cp -f configs/templates/$m.config .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
@@ -163,7 +172,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
         echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config #开启超频，仅MT7621可用
-        ##科学上网## 
+        ##科学上网## 特别注意，开启科学需要开启159行的shadowsocks，否则全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=y" >> .config # simple-obfs混淆插件
         echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件（3.6M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
@@ -216,8 +225,6 @@ jobs:
         # echo "自定义项=y" >> .config
         #########################################################################################
         sed -i "s/^CONFIG_TOOLCHAIN_DIR=.*$/CONFIG_TOOLCHAIN_DIR=${CONFIG_TOOLCHAIN_DIR}/g" .config
-        #sudo ./clear_tree || echo
-        #sudo ./build_firmware_modify ${m}    > /dev/null
         sudo ./clear_tree_simple
         sudo ./build_firmware_modify $m 0
         ls -l images
