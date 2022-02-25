@@ -98,28 +98,21 @@ jobs:
         go-version: ${{ steps.vars.outputs.go_version }}
         
     - name: 开始编译
-      if: true
       env: 
         #用空格分隔型号,循环编译
         TNAME: "${{ github.event.inputs.production }}"
       run: |
-        if [ "$TNAME" == "DEBUG" ];then
-          exit 1
-        fi
-        for m in $TNAME;
-        do
-        #echo "::group::编译 ${m}"
         if [ -f public/Xray.Makefile ] ; then
         mv -f public/Xray.Makefile ${{ env.DIR }}/trunk/user/xray/Makefile
         echo "Makefile file copy success"
         else
-        exit 2
+        exit 1
         fi
         if [ -f public/V2ray.Makefile ] ; then
         mv -f public/V2ray.Makefile ${{ env.DIR }}/trunk/user/v2ray/Makefile
         echo "Makefile file copy success"
         else
-        exit 3 
+        exit 2 
         fi
         cp -f public/ssr-monitor ${{ env.DIR }}/trunk/user/shadowsocks/scripts
         cp -f public/shadowsocks.sh ${{ env.DIR }}/trunk/user/shadowsocks/scripts
@@ -132,11 +125,11 @@ jobs:
         echo "16进制$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
-        #for m in $TNAME;
-        #do
+        for m in $TNAME;
+        do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
-        exit 1
+        exit 0
         fi
         cp -f configs/templates/$m.config .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
